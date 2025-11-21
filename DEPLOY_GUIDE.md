@@ -241,8 +241,6 @@ uvicorn webapp.main:app --host 0.0.0.0 --port 8000
 
 ---
 
-如需新增操作或脚本，请及时在此文档补充。
-
 ---
 
 ## 11. 迁移到 MySQL/RDS 
@@ -312,13 +310,12 @@ ossutil64 cp /opt/water-scraper/data/water_quality.db oss://your-bucket/backups/
 # 备份 CSV
 ossutil64 cp /tmp/readings.csv oss://your-bucket/backups/readings_$(date +%F).csv
 ```
-可将以上命令写入 cron 或额外定时器，保持每日备份。
 
 ---
 
 ## 13. FAQ
 
-1. **如何更新代码？**
+1. **更新代码**
    ```bash
    cd /opt/water-scraper
    git pull
