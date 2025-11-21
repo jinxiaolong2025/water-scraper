@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>水质监测数据浏览</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        margin: 24px;
+        background: #f4f6fb;
+      }
+      h1 {
+        margin: 0;
+      }
+      .filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        padding: 16px;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        margin-bottom: 16px;
+      }
+      label {
+        display: flex;
+        flex-direction: column;
+        font-size: 12px;
+        color: #555;
+      }
+      select,
+      input {
+        min-width: 160px;
+        padding: 6px 8px;
+        border: 1px solid #cdd7ef;
+        border-radius: 4px;
+      }
+      button,
+      .link-button {
+        padding: 8px 20px;
+        background: #2563eb;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 36px;
+      }
+      button:hover {
+        background: #1d4ed8;
+      }
+      .secondary {
+        background: #e2e8f0;
+        color: #1e293b;
+      }
+      .secondary:hover {
+        background: #cbd5f5;
+      }
+      .summary {
+        margin-bottom: 12px;
+        color: #555;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      }
+      th,
+      td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #e6e8f1;
+        font-size: 13px;
+        text-align: center;
+      }
+      th {
+        background: #eef2ff;
+        font-weight: 600;
+      }
+      tbody tr:nth-child(every) {
+        background: #fafbff;
+      }
+      .empty {
+        padding: 32px;
+        text-align: center;
+        color: #777;
+      }
+      .actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      .pagination {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 12px;
+      }
+      .pagination-controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .filters button[type="submit"] {
+        margin-top: 22px;
+        height: 40px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>水质监测数据浏览</h1>
+    <form method="get" class="filters">
+      <input type="hidden" name="page" value="1" />
+      <label>
+        省份
+        <select name="province">
+          <option value="">全部省份</option>
+          {% for prov in provinces %}
+          <option value="{{ prov }}" {% if prov == selected_filters.province %}selected{% endif %}>
+            {{ prov }}
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        城市
+        <select name="city">
+          <option value="">全部城市</option>
+          {% for c in cities %}
+          <option value="{{ c }}" {% if c == selected_filters.city %}selected{% endif %}>
+            {{ c }}
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        流域
+        <select name="basin">
+          <option value="">全部流域</option>
+          {% for basin in basins %}
+          <option value="{{ basin }}" {% if basin == selected_filters.basin %}selected{% endif %}>
+            {{ basin }}
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        断面关键词
+        <input
+          type="text"
+          name="station_keyword"
+          placeholder="支持模糊搜索"
+          value="{{ selected_filters.station_keyword }}"
+        />
+      </label>
+      <label>
+        水质类别
+        <select name="water_quality_class">
+          <option value="">全部</option>
+          {% for wq in water_quality_classes %}
+          <option value="{{ wq }}" {% if wq == selected_filters.water_quality_class %}selected{% endif %}>
+            {{ wq }}
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        开始日期
+        <input type="date" name="start_date" value="{{ selected_filters.start_date }}" />
+      </label>
+      <label>
+        结束日期
+        <input type="date" name="end_date" value="{{ selected_filters.end_date }}" />
+      </label>
+      <label>
+        每页条数
+        <select name="page_size">
+          {% for size in page_size_options %}
+          <option value="{{ size }}" {% if size == selected_filters.page_size %}selected{% endif %}>
+            {{ size }}
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        数值字段
+        <select name="metric_filter">
+          <option value="">不筛选</option>
+          {% for key, label in chart_metrics %}
+          <option value="{{ key }}" {% if key == selected_metric_filter %}selected{% endif %}>
+            {{ label }}
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        最小值
+        <input type="number" step="any" name="min_value" value="{{ min_value }}" />
+      </label>
+      <label>
+        最大值
+        <input type="number" step="any" name="max_value" value="{{ max_value }}" />
+      </label>
+      <label style="flex-direction: row; align-items: center; gap: 6px; margin-top: 22px;">
+        <input type="checkbox" name="non_null" value="1" {% if non_null %}checked{% endif %} />
+        只看非空
+      </label>
+      <div style="align-self: flex-end; display: flex; gap: 8px">
+        <button type="submit">查询</button>
+        <a class="link-button secondary" href="/export?{{ export_query }}" target="_blank">
+          导出 CSV
+        </a>
+      </div>
+    </form>
+
+    <div class="actions">
+      <p class="summary">
+        共检索到 {{ total }} 条记录，当前显示第 {{ page }} / {{ total_pages }} 页（{{ row_count }} 条）。
+      </p>
+    </div>
+
+    {% if rows %}
+    <table>
+      <thead>
+        <tr>
+          <th>省份</th>
+          <th>城市</th>
+          <th>流域</th>
+          <th>断面名称</th>
+          <th>监测时间</th>
+          {% for _, label in metrics %}
+          <th>{{ label }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.province }}</td>
+          <td>{{ row.city }}</td>
+          <td>{{ row.basin }}</td>
+          <td>{{ row.station_name }}</td>
+          <td>{{ row.observed_at }}</td>
+          {% for key, _ in metrics %}
+          <td>{{ row.metrics[key] or "" }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+      <div class="pagination">
+        <div>第 {{ page }} / {{ total_pages }} 页</div>
+        <div class="pagination-controls">
+        {% if prev_query %}
+        <a class="link-button secondary" href="?{{ prev_query }}">上一页</a>
+        {% else %}
+        <button class="secondary" disabled>上一页</button>
+        {% endif %}
+        {% if next_query %}
+        <a class="link-button secondary" href="?{{ next_query }}">下一页</a>
+        {% else %}
+        <button class="secondary" disabled>下一页</button>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="empty">没有符合条件的数据。</div>
+    {% endif %}
+
+  </body>
+</html>
