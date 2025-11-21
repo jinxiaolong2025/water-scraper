@@ -235,7 +235,7 @@ uvicorn webapp.main:app --host 0.0.0.0 --port 8000
 | 查看定时器状态 | `systemctl list-timers --all | grep water-scraper` |
 | 查看 service 日志 | `journalctl -u water-scraper.service -n 50` |
 | 实时查看日志 | `tail -f /var/log/water-scraper.log` |
-| 下载 SQLite | `scp root@<IP>:/opt/water-scraper/data/water_quality.db .` |
+| 下载 SQLite | `scp root@IP:/opt/water-scraper/data/water_quality.db .` |
 | 导出 CSV | `sqlite3 ...; scp root@<IP>:/tmp/readings.csv .` |
 | 启动/停止定时器 | `systemctl start/stop water-scraper.service`、`systemctl enable/disable water-scraper.timer` |
 
