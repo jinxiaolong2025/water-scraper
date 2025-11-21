@@ -1,6 +1,5 @@
 # 水质数据抓取部署与运维手册
 
-> 版本：2025-11-21
 > 目录：`/opt/water-scraper`
 
 本文档记录整个爬虫的工作原理、本地/服务器操作、常用命令、日志位置、排错方式等，供查阅。
@@ -195,7 +194,7 @@ uvicorn webapp.main:app --host 0.0.0.0 --port 8000
 
 ---
 
-## 8. 数据备份与扩展建议
+## 8. 数据备份与扩展
 
 - **备份**：定期将 `data/water_quality.db` 或 `/tmp/readings.csv` 上传到 OSS。
 - **迁移至 MySQL/RDS**：
@@ -246,7 +245,7 @@ uvicorn webapp.main:app --host 0.0.0.0 --port 8000
 
 ---
 
-## 11. 迁移到 MySQL/RDS 示例
+## 11. 迁移到 MySQL/RDS 
 
 1. **创建数据库**：在 RDS 或自建 MySQL 中执行：
    ```sql
@@ -274,7 +273,7 @@ uvicorn webapp.main:app --host 0.0.0.0 --port 8000
      FOREIGN KEY (station_id) REFERENCES stations(id) ON DELETE CASCADE
    );
    ```
-2. **迁移脚本**（示例）：
+2. **迁移脚本**：
    ```python
    from sqlalchemy import create_engine
    from sqlalchemy.orm import sessionmaker
@@ -300,7 +299,7 @@ uvicorn webapp.main:app --host 0.0.0.0 --port 8000
 
 ---
 
-## 12. OSS 备份脚本参考
+## 12. OSS 备份脚本
 
 如需将 SQLite 或 CSV 备份到 OSS，可使用阿里云 `ossutil64`：
 ```bash
@@ -343,13 +342,10 @@ ossutil64 cp /tmp/readings.csv oss://your-bucket/backups/readings_$(date +%F).cs
 
 ## 14. 联系与变更记录
 
-- **负责人**：`jinxiaolong`（示例，可按需填写）。
+- **负责人**：`jinxiaolong`
 - **最新版代码**：https://github.com/jinxiaolong2025/water-scraper
 - **常用路径**：
   - `/opt/water-scraper`：代码
   - `/opt/water-scraper/.venv`：虚拟环境
   - `/var/log/water-scraper.log`：运行日志
-- **变更记录**：
-  - 2025-11-21：完成 ECS 部署与 systemd 定时；首次抓取成功。
-  - 如有新的操作/策略，请在此处追加时间线。
 
