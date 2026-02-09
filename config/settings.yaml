@@ -1,0 +1,6 @@
+default:
+  database_path: "data/water_quality.db"
+  timezone: "Asia/Shanghai"
+  playwright:
+    headless: true
+    timeout_ms: 30000

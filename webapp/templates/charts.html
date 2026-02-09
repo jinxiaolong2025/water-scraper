@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>水质监测图表</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        margin: 24px;
+        background: #f4f6fb;
+      }
+      h1 {
+        margin: 0;
+      }
+      .tabs {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .tab-links {
+        display: flex;
+        gap: 12px;
+      }
+      .tab-links a {
+        padding: 6px 14px;
+        border-radius: 20px;
+        text-decoration: none;
+        color: #1e293b;
+        background: #e2e8f0;
+        font-size: 14px;
+      }
+      .tab-links a.active {
+        background: #2563eb;
+        color: #fff;
+      }
+      .filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        padding: 16px;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        margin-bottom: 16px;
+      }
+      label {
+        display: flex;
+        flex-direction: column;
+        font-size: 12px;
+        color: #555;
+      }
+      select,
+      input {
+        min-width: 160px;
+        padding: 6px 8px;
+        border: 1px solid #cdd7ef;
+        border-radius: 4px;
+      }
+      button {
+        padding: 8px 20px;
+        background: #2563eb;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        height: 36px;
+      }
+      .chart-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+        gap: 16px;
+      }
+      .card {
+        background: #fff;
+        border-radius: 8px;
+        padding: 16px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      }
+      canvas {
+        width: 100%;
+        height: 420px;
+        border-radius: 8px;
+      }
+      .empty {
+        padding: 32px;
+        text-align: center;
+        color: #777;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>水质监测图表</h1>
+    <form method="get" class="filters">
+      <label>
+        省份
+        <select name="province">
+          <option value="">全部省份</option>
+          {% for prov in provinces %}
+          <option value="{{ prov }}" {% if prov == selected_filters.province %}selected{% endif %}>
+            {{ prov }}
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        城市
+        <select name="city">
+          <option value="">全部城市</option>
+          {% for c in cities %}
+          <option value="{{ c }}" {% if c == selected_filters.city %}selected{% endif %}>
+            {{ c }}
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        流域
+        <select name="basin">
+          <option value="">全部流域</option>
+          {% for basin in basins %}
+          <option value="{{ basin }}" {% if basin == selected_filters.basin %}selected{% endif %}>
+            {{ basin }}
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        断面关键词
+        <input
+          type="text"
+          name="station_keyword"
+          placeholder="支持模糊搜索"
+          value="{{ selected_filters.station_keyword }}"
+        />
+      </label>
+      <label>
+        水质类别
+        <select name="water_quality_class">
+          <option value="">全部</option>
+          {% for wq in water_quality_classes %}
+          <option value="{{ wq }}" {% if wq == selected_filters.water_quality_class %}selected{% endif %}>
+            {{ wq }}
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        开始日期
+        <input type="date" name="start_date" value="{{ selected_filters.start_date }}" />
+      </label>
+      <label>
+        结束日期
+        <input type="date" name="end_date" value="{{ selected_filters.end_date }}" />
+      </label>
+      <label>
+        指标
+        <select name="metric">
+          {% for key, label in chart_metrics %}
+          <option value="{{ key }}" {% if key == selected_metric %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div style="align-self: flex-end">
+        <button type="submit">更新图表</button>
+      </div>
+    </form>
+
+    <div class="chart-grid">
+      <div class="card">
+        <h3>水质类别占比（共 {{ distribution_total }} 条）</h3>
+        {% if class_distribution_json != '[]' %}
+        <canvas id="class-chart"></canvas>
+        {% else %}
+        <div class="empty">当前筛选下没有水质类别数据。</div>
+        {% endif %}
+      </div>
+      <div class="card">
+        <h3>指标趋势（{{ metric_label }}）</h3>
+        {% if series_data_json != '[]' %}
+        <canvas id="trend-chart"></canvas>
+        {% else %}
+        <div class="empty">暂无可绘制的趋势数据。</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <script>
+      function drawRoundedRect(ctx, x, y, width, height, radius) {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+      }
+
+      function drawClassChart(canvas, data, total) {
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        const dpr = window.devicePixelRatio || 1;
+        const padding = 36 * dpr;
+        const barHeight = 28 * dpr;
+        const gap = 16 * dpr;
+        const width = canvas.clientWidth * dpr;
+        const height = padding * 2 + data.length * (barHeight + gap);
+        canvas.width = width;
+        canvas.height = height;
+        ctx.clearRect(0, 0, width, height);
+
+        ctx.fillStyle = "#6b7280";
+        ctx.font = `${12 * dpr}px sans-serif`;
+        ctx.fillText(`总记录数：${total}`, padding, padding - 12 * dpr);
+
+        const maxValue = Math.max(...data.map((item) => item.value), 1);
+        data.forEach((item, index) => {
+          const y = padding + index * (barHeight + gap);
+          const barWidth = ((width - padding * 2) * item.value) / maxValue;
+
+          ctx.fillStyle = "#e5e7eb";
+          drawRoundedRect(ctx, padding, y, width - padding * 2, barHeight, 6 * dpr);
+          ctx.fill();
+
+          ctx.fillStyle = "#2563eb";
+          drawRoundedRect(ctx, padding, y, barWidth, barHeight, 6 * dpr);
+          ctx.fill();
+
+          ctx.fillStyle = "#111827";
+          ctx.font = `${14 * dpr}px sans-serif`;
+          ctx.textAlign = "left";
+          ctx.fillText(item.label, padding + 8 * dpr, y + barHeight / 2 + 5);
+
+          ctx.textAlign = "right";
+          ctx.fillStyle = "#1f2937";
+          ctx.fillText(`${item.value} 条 (${item.percent}%)`, width - padding, y + barHeight / 2 + 5);
+        });
+      }
+
+      function drawTrendChart(canvas, data, metricLabel) {
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        const dpr = window.devicePixelRatio || 1;
+        const width = canvas.clientWidth * dpr;
+        const height = canvas.clientHeight * dpr;
+        canvas.width = width;
+        canvas.height = height;
+        ctx.clearRect(0, 0, width, height);
+
+        const padding = 60 * dpr;
+        const innerWidth = width - padding * 2;
+        const innerHeight = height - padding * 2;
+
+        if (!data.length) {
+          ctx.fillStyle = "#9ca3af";
+          ctx.font = `${16 * dpr}px sans-serif`;
+          ctx.fillText("暂无数据", width / 2 - 40 * dpr, height / 2);
+          return;
+        }
+
+        const values = data.map((item) => item.value);
+        const minValue = Math.min(...values);
+        const maxValue = Math.max(...values);
+        const times = data.map((item) => item.time);
+
+        ctx.strokeStyle = "#e5e7eb";
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+          const y = padding + (innerHeight / 4) * i;
+          ctx.beginPath();
+          ctx.moveTo(padding, y);
+          ctx.lineTo(width - padding, y);
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = "#6b7280";
+        ctx.font = `${12 * dpr}px sans-serif`;
+        ctx.fillText(metricLabel, padding, padding - 16 * dpr);
+
+        ctx.strokeStyle = "#2563eb";
+        ctx.lineWidth = 2 * dpr;
+        ctx.beginPath();
+        data.forEach((point, index) => {
+          const x = padding + (index / Math.max(1, data.length - 1)) * innerWidth;
+          const normalized =
+            maxValue === minValue ? 0.5 : (point.value - minValue) / (maxValue - minValue);
+          const y = height - padding - normalized * innerHeight;
+          if (index === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(37,99,235,0.15)";
+        ctx.lineTo(width - padding, height - padding);
+        ctx.lineTo(padding, height - padding);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = "#2563eb";
+        data.forEach((point, index) => {
+          const x = padding + (index / Math.max(1, data.length - 1)) * innerWidth;
+          const normalized =
+            maxValue === minValue ? 0.5 : (point.value - minValue) / (maxValue - minValue);
+          const y = height - padding - normalized * innerHeight;
+          ctx.beginPath();
+          ctx.arc(x, y, 4 * dpr, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        ctx.fillStyle = "#6b7280";
+        ctx.textAlign = "center";
+        const step = Math.max(1, Math.ceil(times.length / 6));
+        times.forEach((time, index) => {
+          if (index % step === 0) {
+            const x = padding + (index / Math.max(1, data.length - 1)) * innerWidth;
+            ctx.fillText(time, x, height - padding + 18 * dpr);
+          }
+        });
+
+        ctx.textAlign = "right";
+        ctx.fillText(maxValue.toFixed(2), width - padding + 10 * dpr, padding);
+        ctx.fillText(minValue.toFixed(2), width - padding + 10 * dpr, height - padding);
+      }
+
+      const distributionData = {{ class_distribution_json | safe }};
+      if (distributionData.length) {
+        const renderDistribution = () =>
+          drawClassChart(
+            document.getElementById("class-chart"),
+            distributionData,
+            {{ distribution_total }}
+          );
+        renderDistribution();
+        window.addEventListener("resize", renderDistribution);
+      }
+
+      const seriesData = {{ series_data_json | safe }};
+      if (seriesData.length) {
+        drawTrendChart(
+          document.getElementById("trend-chart"),
+          seriesData,
+          "{{ metric_label }}"
+        );
+        window.addEventListener("resize", () =>
+          drawTrendChart(
+            document.getElementById("trend-chart"),
+            seriesData,
+            "{{ metric_label }}"
+          )
+        );
+      }
+    </script>
+  </body>
+</html>
